@@ -6,7 +6,7 @@ const FALLBACK_MODELS = new Set(["claude-fable-5-1", "claude-opus-5-5", "claude-
 type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 
 export function createAnthropicProvider(): AIProvider {
-  const apiKey = process.env.AI_API_KEY || process.env.ANTHROPIC_API_KEY;
+  const apiKey = (process.env.AI_API_KEY || process.env.ANTHROPIC_API_KEY || "").trim().replace(/^["']|["']$/g, "");
   if (!apiKey) throw new ProviderConfigError("AI_API_KEY is not set on the server.");
   const model = process.env.AI_MODEL || "claude-opus-5-5";
   const voiceEffort = (process.env.AI_EFFORT_VOICE || "low") as Effort;

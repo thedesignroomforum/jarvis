@@ -5,8 +5,10 @@ import { ProviderConfigError, type AIProvider, type AIRequest } from "./types.js
  * Set GEMINI_API_KEY. Optional GEMINI_MODEL (default "gemini-flash-latest").
  */
 export function createGeminiProvider(): AIProvider {
-  const aiKey = process.env.AI_API_KEY || "";
-  const apiKey = process.env.GEMINI_API_KEY || (process.env.AI_PROVIDER === "gemini" || /^AIza/.test(aiKey) ? aiKey : "");
+  // Keys pasted into Vercel sometimes carry spaces, quotes or a newline; strip them.
+  const clean = (v?: string) => (v || "").trim().replace(/^["']|["']$/g, "").trim();
+  const aiKey = clean(process.env.AI_API_KEY);
+  const apiKey = clean(process.env.GEMINI_API_KEY) || (process.env.AI_PROVIDER === "gemini" || /^AIza/.test(aiKey) ? aiKey : "");
   if (!apiKey) throw new ProviderConfigError("GEMINI_API_KEY is not set on the server.");
   // Model names change over time; try the configured one, then known-good fallbacks.
   const models = [process.env.GEMINI_MODEL, "gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash"].filter(

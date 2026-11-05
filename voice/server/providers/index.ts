@@ -11,7 +11,7 @@ export function getProvider(): AIProvider {
   if (cached) return cached;
   // Default: Gemini if only GEMINI_API_KEY is set (free tier), otherwise Anthropic.
   // A Google key (starts with "AIza") pasted into AI_API_KEY also means Gemini.
-  const googleKeyInAiKey = /^AIza/.test(process.env.AI_API_KEY || "");
+  const googleKeyInAiKey = /^["'\s]*AIza/.test(process.env.AI_API_KEY || "");
   const fallback =
     googleKeyInAiKey || (process.env.GEMINI_API_KEY && !process.env.AI_API_KEY && !process.env.ANTHROPIC_API_KEY) ? "gemini" : "anthropic";
   const name = (process.env.AI_PROVIDER || fallback).toLowerCase();
