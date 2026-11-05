@@ -5,23 +5,41 @@ import { ProviderConfigError, type AIProvider, type AIRequest } from "./types.js
  * Set GEMINI_API_KEY. Optional GEMINI_MODEL (default "gemini-flash-latest").
  */
 export function createGeminiProvider(): AIProvider {
-  const apiKey = process.env.GEMINI_API_KEY || (process.env.AI_PROVIDER === "gemini" ? process.env.AI_API_KEY : "");
+  const aiKey = process.env.AI_API_KEY || "";
+  const apiKey = process.env.GEMINI_API_KEY || (process.env.AI_PROVIDER === "gemini" || /^AIza/.test(aiKey) ? aiKey : "");
   if (!apiKey) throw new ProviderConfigError("GEMINI_API_KEY is not set on the server.");
-  const model = process.env.GEMINI_MODEL || "gemini-flash-latest";
+  // Model names change over time; try the configured one, then known-good fallbacks.
+  const models = [process.env.GEMINI_MODEL, "gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash"].filter(
+    (m, i, a): m is string => !!m && a.indexOf(m) === i,
+  );
+  let model = models[0];
 
   return {
-    name: `gemini:${model}`,
+    get name() {
+      return `gemini:${model}`;
+    },
     async ask(req: AIRequest) {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: `${req.system}\n\n${req.context}` }] },
-          contents: req.messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
-          generationConfig: { maxOutputTokens: req.voice ? 1024 : 4096, temperature: 0.7 },
-        }),
+      const body = JSON.stringify({
+        systemInstruction: { parts: [{ text: `${req.system}\n\n${req.context}` }] },
+        contents: req.messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
+        generationConfig: { maxOutputTokens: req.voice ? 1024 : 4096, temperature: 0.7 },
       });
-      if (!res.ok) throw new Error(`gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
+      let res: Response | null = null;
+      for (const m of models.slice(models.indexOf(model))) {
+        res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+          body,
+        });
+        if (res.status !== 404) {
+          model = m; // remember the one that exists
+          break;
+        }
+      }
+      if (!res || !res.ok) {
+        const detail = res ? (await res.text()).slice(0, 300) : "no response";
+        throw Object.assign(new Error(`gemini ${res?.status}: ${detail}`), { status: res?.status });
+      }
       const data = (await res.json()) as {
         candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
         promptFeedback?: { blockReason?: string };

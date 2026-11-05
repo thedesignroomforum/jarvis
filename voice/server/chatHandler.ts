@@ -93,6 +93,19 @@ export async function handleChat(req: Request): Promise<Response> {
   } catch (err) {
     if (err instanceof ProviderConfigError) return json({ error: "NOT_CONFIGURED", detail: err.message }, 503);
     console.error("[jarvis] AI error", err);
-    return json({ error: "AI_UNAVAILABLE" }, 502);
+    return json({ error: "AI_UNAVAILABLE", reason: explain(err) }, 502);
   }
+}
+
+/** A short, secret-free reason so the owner can see what went wrong without opening server logs. */
+function explain(err: unknown): string {
+  const msg = String((err as { message?: string })?.message || err || "");
+  const status = Number((err as { status?: number })?.status) || Number(msg.match(/\b(\d{3})\b/)?.[1]) || 0;
+  if (status === 401 || status === 403 || /api key|API_KEY_INVALID|authentication|permission/i.test(msg))
+    return "The AI key was rejected. Check the key in Vercel's Environment Variables, then redeploy.";
+  if (status === 429 || /quota|rate|exhausted/i.test(msg)) return "The AI provider's free limit is used up for now. Try again later.";
+  if (status === 402 || /credit|billing|balance/i.test(msg)) return "The AI account has no credit.";
+  if (status === 404 || /not found|model/i.test(msg)) return "The AI model name wasn't found.";
+  if (status >= 500) return "The AI provider is having problems right now.";
+  return "Unexpected AI error.";
 }

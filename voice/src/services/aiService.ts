@@ -63,11 +63,14 @@ export async function askJarvis(message: string, history: Turn[] = [], opts: { v
     const data = (await res.json()) as { reply?: string };
     if (data.reply) return data.reply;
   }
-  const err = (await res.json().catch(() => ({}))) as { error?: string };
+  const err = (await res.json().catch(() => ({}))) as { error?: string; reason?: string };
   if (err.error === "NOT_CONFIGURED") throw new AIServiceError("not-configured", "My intelligence service isn't configured yet. Add GEMINI_API_KEY or AI_API_KEY on the server.");
   if (err.error === "ACCESS_CODE_REQUIRED") throw new AIServiceError("access-code", "Access code required.");
   if (err.error === "RATE_LIMITED") throw new AIServiceError("rate-limited", "Too many requests. Give me a moment.");
-  throw new AIServiceError("unavailable", "I'm having trouble reaching my intelligence service. Try again.");
+  throw new AIServiceError(
+    "unavailable",
+    "I'm having trouble reaching my intelligence service. Try again." + (err.reason ? ` (${err.reason})` : ""),
+  );
 }
 
 export async function getServerConfig(): Promise<{ ai: boolean; elevenlabs: boolean; accessCode: boolean }> {
