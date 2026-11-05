@@ -21,33 +21,33 @@
 .wake__ring {
   position: absolute;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(var(--fg), 0.22);
   transition: transform 600ms cubic-bezier(.2,.7,.2,1), opacity 600ms, border-color 600ms;
 }
 .wake__ring--outer { inset: 0; }
-.wake__ring--inner { inset: 12px; border-color: rgba(255, 255, 255, 0.35); }
+.wake__ring--inner { inset: 12px; border-color: rgba(var(--fg), 0.35); }
 .wake__core {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
+  background: rgb(var(--fg));
+  box-shadow: 0 0 12px rgba(var(--fg), 0.6);
   transition: transform 400ms, opacity 400ms;
 }
-.wake:hover .wake__ring--outer { transform: scale(1.06); border-color: rgba(255, 255, 255, 0.4); }
-.wake:focus-visible { outline: 1px solid rgba(255,255,255,.7); outline-offset: 6px; }
+.wake:hover .wake__ring--outer { transform: scale(1.06); border-color: rgba(var(--fg), 0.4); }
+.wake:focus-visible { outline: 1px solid rgba(var(--fg),.7); outline-offset: 6px; }
 
 .wake__label {
   font-size: 11px;
   letter-spacing: 0.32em;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.86);
+  color: rgba(var(--fg), 0.86);
   padding-left: 0.32em; /* optical centring for letter-spacing */
 }
 .wake__hint {
   font-size: 10px;
   letter-spacing: 0.14em;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(var(--fg), 0.35);
   margin-top: -8px;
   text-transform: uppercase;
 }
@@ -55,7 +55,7 @@
 /* States */
 .wake[data-state="sleeping"] .wake__ring--outer { animation: wake-idle 6s ease-in-out infinite; }
 .wake[data-state="ready"] .wake__ring--outer { animation: wake-idle 4s ease-in-out infinite; }
-.wake[data-state="listening"] .wake__ring--outer { animation: wake-pulse 1.6s ease-out infinite; border-color: rgba(255,255,255,.55); }
+.wake[data-state="listening"] .wake__ring--outer { animation: wake-pulse 1.6s ease-out infinite; border-color: rgba(var(--fg),.55); }
 .wake[data-state="listening"] .wake__ring--inner { animation: wake-pulse 1.6s ease-out .4s infinite; }
 .wake[data-state="thinking"] .wake__ring--outer { border-style: dashed; animation: wake-spin 9s linear infinite; }
 .wake[data-state="thinking"] .wake__core { animation: wake-blink 1.4s ease-in-out infinite; }

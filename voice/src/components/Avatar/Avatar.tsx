@@ -48,16 +48,20 @@ function compile(gl: WebGLRenderingContext, type: number, src: string) {
 export interface AvatarProps {
   /** True before the microphone is enabled: the face is at its darkest. */
   offline: boolean;
+  /** Light theme: the same dots, drawn dark on a white background. */
+  light?: boolean;
 }
 
 /**
  * JARVIS's face. The supplied reference image is the base layer, animated by a WebGL
  * shader (60 fps, no React re-renders). Falls back to a CSS-animated <img> without WebGL.
  */
-export function Avatar({ offline }: AvatarProps) {
+export function Avatar({ offline, light = false }: AvatarProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const offlineRef = useRef(offline);
   offlineRef.current = offline;
+  const lightRef = useRef(light);
+  lightRef.current = light;
   const [fallback, setFallback] = useState(false);
 
   useEffect(() => {
@@ -93,7 +97,7 @@ export function Avatar({ offline }: AvatarProps) {
     const u = (name: string) => gl.getUniformLocation(program, name);
     const U = {
       res: u("uRes"), img: u("uImg"), fit: u("uFit"), time: u("uTime"), bright: u("uBright"), motion: u("uMotion"),
-      level: u("uLevel"), think: u("uThink"), glitch: u("uGlitch"), zoom: u("uZoom"), field: u("uField"), parallax: u("uParallax"), mouth: u("uMouth"),
+      level: u("uLevel"), think: u("uThink"), glitch: u("uGlitch"), zoom: u("uZoom"), field: u("uField"), parallax: u("uParallax"), mouth: u("uMouth"), light: u("uLight"),
     };
 
     const tex = gl.createTexture();
@@ -140,6 +144,7 @@ export function Avatar({ offline }: AvatarProps) {
     const cur: Params = { bright: 0, motion: 0.3, think: 0, glitch: 0, zoom: 0, field: 0 };
     let level = 0;
     let mouth = 0;
+    let lightMix = lightRef.current ? 1 : 0;
     const par = { x: 0, y: 0 };
     let last = performance.now();
     let raf = 0;
@@ -193,6 +198,8 @@ export function Avatar({ offline }: AvatarProps) {
       gl.uniform1f(U.field, cur.field);
       gl.uniform2f(U.parallax, par.x * dpr, par.y * dpr);
       gl.uniform1f(U.mouth, reduced ? mouth * 0.5 : mouth);
+      lightMix += ((lightRef.current ? 1 : 0) - lightMix) * ease(6);
+      gl.uniform1f(U.light, lightMix);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     };
     raf = requestAnimationFrame(frame);
@@ -211,7 +218,7 @@ export function Avatar({ offline }: AvatarProps) {
 
   if (fallback) {
     return (
-      <div className="avatar avatar--fallback" data-offline={offline}>
+      <div className="avatar avatar--fallback" data-offline={offline} data-light={light}>
         <img src={IMAGE_SRC} alt="" />
       </div>
     );

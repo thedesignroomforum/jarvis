@@ -4,7 +4,7 @@
   width: 100%;
   height: 100%;
   display: block;
-  background: #000;
+  background: rgb(var(--bg));
 }
 
 /* No-WebGL fallback: the same image, with CSS breathing and state-driven exposure. */
@@ -27,3 +27,5 @@
 @keyframes avatar-breathe {
   50% { transform: scale(1.006); }
 }
+
+.avatar--fallback[data-light="true"] img { filter: invert(1) brightness(var(--avatar-bright, 0.6)); }

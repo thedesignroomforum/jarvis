@@ -3,8 +3,8 @@
   max-height: min(42vh, 380px);
   display: flex;
   flex-direction: column;
-  mask-image: linear-gradient(to bottom, transparent, #000 22%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%);
+  mask-image: linear-gradient(to bottom, transparent, black 22%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 22%);
 }
 .convo__list {
   list-style: none;
@@ -21,7 +21,7 @@
   display: block;
   font-size: 9.5px;
   letter-spacing: 0.28em;
-  color: rgba(255, 255, 255, 0.38);
+  color: rgba(var(--fg), 0.38);
   margin-bottom: 4px;
 }
 .convo__text {
@@ -29,10 +29,10 @@
   font-size: 13.5px;
   line-height: 1.55;
   font-weight: 300;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(var(--fg), 0.82);
   white-space: pre-wrap;
 }
-.convo__item--user .convo__text { color: rgba(255, 255, 255, 0.6); }
-.convo__item--system .convo__text { color: rgba(255, 255, 255, 0.5); font-size: 12px; }
-.convo__item--interim .convo__text { color: rgba(255, 255, 255, 0.45); font-style: italic; }
+.convo__item--user .convo__text { color: rgba(var(--fg), 0.6); }
+.convo__item--system .convo__text { color: rgba(var(--fg), 0.5); font-size: 12px; }
+.convo__item--interim .convo__text { color: rgba(var(--fg), 0.45); font-style: italic; }
 @keyframes convo-in { from { opacity: 0; transform: translateY(6px); } }

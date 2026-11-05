@@ -20,6 +20,23 @@ function Jarvis() {
     }
   });
   const [panel, setPanel] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    try {
+      return localStorage.getItem("jarvis.theme") === "light" ? "light" : "dark";
+    } catch {
+      return "dark";
+    }
+  });
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "light" ? "#ffffff" : "#000000");
+    try {
+      localStorage.setItem("jarvis.theme", theme);
+    } catch {
+      /* private mode */
+    }
+  }, [theme]);
+  const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"));
   const [code, setCode] = useState("");
 
   useEffect(() => {
@@ -49,6 +66,8 @@ function Jarvis() {
         setShowTranscript((v) => !v);
       } else if (e.key === "m" || e.key === "M") {
         setPanel((v) => !v);
+      } else if (e.key === "l" || e.key === "L") {
+        setTheme((t) => (t === "light" ? "dark" : "light"));
       }
     };
     window.addEventListener("keydown", onKey);
@@ -60,7 +79,7 @@ function Jarvis() {
   return (
     <div className="app">
       <h1 className="sr-only">JARVIS voice assistant</h1>
-      <Avatar offline={!online} />
+      <Avatar offline={!online} light={theme === "light"} />
 
       <header className="topbar">
         <span className="topbar__brand">JARVIS</span>
@@ -79,6 +98,15 @@ function Jarvis() {
         </button>
         <button type="button" className="tool" onClick={() => setPanel(true)} title="Memory & settings (M)">
           Memory
+        </button>
+        <button
+          type="button"
+          className="tool"
+          onClick={toggleTheme}
+          aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+          title="Light / dark (L)"
+        >
+          {theme === "light" ? "Dark" : "Light"}
         </button>
       </div>
 

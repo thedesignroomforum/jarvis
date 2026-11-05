@@ -28,6 +28,7 @@ uniform float uGlitch;     // wake-up glitch 0..1
 uniform float uZoom;       // forward movement (0 = rest)
 uniform float uField;      // energy field around the face 0..1
 uniform vec2  uParallax;   // px offset from pointer / slow drift
+uniform float uLight;      // 0 = white dots on black, 1 = dark dots on white
 uniform float uMouth;      // jaw opening 0..1, driven by the voice while speaking
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
@@ -129,5 +130,8 @@ void main() {
   float grain = (hash(frag + t) - 0.5) * 0.012 * uBright;
 
   float outL = lum * mix(0.55, 1.0, vig) + particles + halo + grain;
-  gl_FragColor = vec4(vec3(clamp(outL, 0.0, 1.0)), 1.0);
+  float L = clamp(outL, 0.0, 1.0);
+  // Light mode inverts the exposure: the same dots, ink on paper.
+  float ink = 1.0 - min(1.0, L * 1.1) * 0.94;
+  gl_FragColor = vec4(vec3(mix(L, ink, uLight)), 1.0);
 }`;
