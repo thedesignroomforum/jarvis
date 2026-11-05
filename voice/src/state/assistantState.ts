@@ -65,3 +65,21 @@ export function useAssistantState() {
  * voice output while speaking) and read by the avatar every frame. Not React state.
  */
 export const audioLevel = { current: 0, source: "none" as "none" | "mic" | "voice" };
+
+/**
+ * One-shot head gestures (nod / shake), read by the avatar loop. Not React state.
+ */
+export type Gesture = "nod" | "shake";
+export const gesture = { kind: null as Gesture | null, at: 0 };
+export function triggerGesture(kind: Gesture) {
+  gesture.kind = kind;
+  gesture.at = performance.now();
+}
+
+/** Picks a gesture from how a reply starts: "Yes, …" nods, "No, …" shakes. */
+export function gestureForReply(text: string): Gesture | null {
+  const s = text.trim().toLowerCase().replace(/^[^a-z]+/, "").slice(0, 60);
+  if (/^(no\b|nope|not really|not quite|don'?t\b|never\b|i wouldn'?t|i would not|i disagree|that'?s not|unfortunately|wrong\b|i can'?t)/.test(s)) return "shake";
+  if (/^(yes|yeah|yep|sure|absolutely|exactly|correct|right\b|of course|definitely|agreed|i agree|good\b|great\b|done\b|understood|got it|noted|certainly|indeed|perfect|okay|ok\b|alright)/.test(s)) return "nod";
+  return null;
+}

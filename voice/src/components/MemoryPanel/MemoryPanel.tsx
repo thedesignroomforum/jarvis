@@ -49,6 +49,13 @@ export function MemoryPanel({ jarvis, onClose }: { jarvis: JarvisController; onC
       </label>
       <label className="sheet__row">
         <span>
+          Wake on double clap
+          <small>Clap twice. Works after you allow the microphone, while this tab is open. Only loudness is checked; nothing is recorded.</small>
+        </span>
+        <input type="checkbox" checked={jarvis.clapWake} onChange={(e) => jarvis.setClapWake(e.target.checked)} />
+      </label>
+      <label className="sheet__row">
+        <span>
           Speak replies
           <small>{jarvis.engine === "elevenlabs" ? "Voice: ElevenLabs" : "Voice: this device"}</small>
         </span>

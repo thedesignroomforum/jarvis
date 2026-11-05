@@ -11,7 +11,7 @@ import { parseCommand } from "../services/commands";
 import { CATEGORY_LABELS, memoryStore } from "../services/memoryService";
 import { queryMicPermission, type MicPermission } from "../services/micService";
 import type { VoiceEngine } from "../services/voiceOutput";
-import { getAssistantState, setAssistantState, STATES, useAssistantState } from "../state/assistantState";
+import { gestureForReply, getAssistantState, setAssistantState, STATES, triggerGesture, useAssistantState } from "../state/assistantState";
 import { useAudioAnalyzer } from "./useAudioAnalyzer";
 import { useSpeechRecognition } from "./useSpeechRecognition";
 import { useSpeechSynthesis } from "./useSpeechSynthesis";
@@ -47,12 +47,14 @@ let entryId = 0;
 
 export function useJarvis() {
   const state = useAssistantState();
-  const mic = useAudioAnalyzer();
+  const clapHandler = useRef<(() => void) | null>(null);
+  const mic = useAudioAnalyzer(clapHandler);
   const { voice, voices, defaultVoice } = useSpeechSynthesis();
 
   const [permission, setPermission] = useState<MicPermission>("unknown");
   const [micStatus, setMicStatus] = useState<MicStatus>("off");
   const [wakeWord, setWakeWordState] = useState(() => readBool("jarvis.wakeWord", false));
+  const [clapWake, setClapWakeState] = useState(() => readBool("jarvis.clapWake", true));
   const [voiceOn, setVoiceOnState] = useState(() => readBool("jarvis.voiceOn", true));
   const [voiceName, setVoiceNameState] = useState<string | null>(() => {
     try {
@@ -161,6 +163,8 @@ export function useJarvis() {
         return;
       }
       setAssistantState(STATES.SPEAKING);
+      const g = gestureForReply(text);
+      if (g) triggerGesture(g);
       setPaused(false);
       // While speaking, only control words are recognised ("stop", "pause"…).
       speech.setMode(permissionRef.current === "granted" ? "interrupt" : "off");
@@ -293,6 +297,9 @@ export function useJarvis() {
       setNotice(null);
       if (wakeTimer.current) clearTimeout(wakeTimer.current);
       setAssistantState(STATES.WAKING);
+      // Answer the call with a small nod once the head has lifted.
+      // (Without a request, the "Yes. I'm listening." greeting nods instead.)
+      if (rest) setTimeout(() => getAssistantState() === STATES.WAKING && triggerGesture("nod"), 550);
       wakeTimer.current = setTimeout(() => {
         if (getAssistantState() !== STATES.WAKING) return;
         if (rest && parseCommand(rest).type !== "wake") {
@@ -336,6 +343,14 @@ export function useJarvis() {
       if (getAssistantState() === STATES.LISTENING) goReady();
     },
   };
+
+  // Double clap wakes JARVIS (only while asleep/idle and after mic permission).
+  clapHandler.current = clapWake
+    ? () => {
+        const s = getAssistantState();
+        if (s === STATES.SLEEPING || s === STATES.READY) wake();
+      }
+    : null;
 
   // ── Microphone permission ─────────────────────────────────────────────
   const enableMic = useCallback(async () => {
@@ -399,6 +414,10 @@ export function useJarvis() {
     },
     [idleRecognition],
   );
+  const setClapWake = useCallback((v: boolean) => {
+    setClapWakeState(v);
+    writeBool("jarvis.clapWake", v);
+  }, []);
   const setVoiceOn = useCallback((v: boolean) => {
     setVoiceOnState(v);
     writeBool("jarvis.voiceOn", v);
@@ -444,6 +463,8 @@ export function useJarvis() {
     recognitionSupported,
     wakeWord,
     setWakeWord,
+    clapWake,
+    setClapWake,
     voiceOn,
     setVoiceOn,
     voices,

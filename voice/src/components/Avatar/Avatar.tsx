@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { audioLevel, getAssistantState, timeInState, type AssistantState } from "../../state/assistantState";
+import { audioLevel, gesture, getAssistantState, timeInState, type AssistantState } from "../../state/assistantState";
 import { FRAGMENT_SHADER, VERTEX_SHADER } from "./avatarShader";
 import "./Avatar.css";
 
@@ -97,7 +97,7 @@ export function Avatar({ offline, light = false }: AvatarProps) {
     const u = (name: string) => gl.getUniformLocation(program, name);
     const U = {
       res: u("uRes"), img: u("uImg"), fit: u("uFit"), time: u("uTime"), bright: u("uBright"), motion: u("uMotion"),
-      level: u("uLevel"), think: u("uThink"), glitch: u("uGlitch"), zoom: u("uZoom"), field: u("uField"), parallax: u("uParallax"), mouth: u("uMouth"), light: u("uLight"),
+      level: u("uLevel"), think: u("uThink"), glitch: u("uGlitch"), zoom: u("uZoom"), field: u("uField"), parallax: u("uParallax"), mouth: u("uMouth"), light: u("uLight"), head: u("uHead"),
     };
 
     const tex = gl.createTexture();
@@ -144,6 +144,8 @@ export function Avatar({ offline, light = false }: AvatarProps) {
     const cur: Params = { bright: 0, motion: 0.3, think: 0, glitch: 0, zoom: 0, field: 0 };
     let level = 0;
     let mouth = 0;
+    const head = { x: 0, y: 0, r: 0 };
+    let talk = 0; // smoothed "is talking" amount for head movement
     let lightMix = lightRef.current ? 1 : 0;
     const par = { x: 0, y: 0 };
     let last = performance.now();
@@ -179,6 +181,45 @@ export function Avatar({ offline, light = false }: AvatarProps) {
       const speech = state === "speaking" ? Math.min(1, Math.pow(audioLevel.current, 0.8) * 1.15) : 0;
       mouth += (speech - mouth) * ease(speech > mouth ? 30 : 16);
 
+      // Head pose. Base posture per state, plus speech movement and one-shot gestures.
+      const tState = timeInState();
+      let hx = 0, hy = 0, hr = 0;
+      if (state === "sleeping") {
+        // Head dropped forward and to one side, rising and falling slowly with sleepy breath.
+        hy = 0.016 + Math.sin(t * 0.5) * 0.0025;
+        hr = 0.045;
+      } else if (state === "waking") {
+        // Lifts the head, then a small acknowledging nod (handled by the gesture below).
+        hy = -0.004 * Math.min(1, tState / 500);
+      } else if (state === "listening") {
+        hr = -0.028; // attentive head tilt
+        hy = -0.002;
+      } else if (state === "thinking") {
+        hr = 0.018 + Math.sin(t * 0.8) * 0.006;
+        hx = Math.sin(t * 0.6) * 0.003;
+        hy = -0.004; // looks up a touch while thinking
+      }
+      talk += ((state === "speaking" ? 1 : 0) - talk) * ease(3);
+      // While talking: emphasis bobs with the voice, and the head drifts and turns gently.
+      hy += talk * (level * 0.007 + Math.sin(t * 2.1) * 0.0015);
+      hx += talk * (Math.sin(t * 0.73) * 0.006 + Math.sin(t * 1.9) * 0.002);
+      hr += talk * (Math.sin(t * 0.61 + 1) * 0.03 + level * 0.008);
+
+      if (gesture.kind) {
+        const gt = (now - gesture.at) / 1000;
+        if (gesture.kind === "nod" && gt < 0.95) {
+          const k = gt / 0.95;
+          hy += Math.sin(k * Math.PI * 4) * 0.011 * (1 - k) + Math.sin(k * Math.PI) * 0.004;
+        } else if (gesture.kind === "shake" && gt < 1.1) {
+          const k = gt / 1.1;
+          hx += Math.sin(k * Math.PI * 5) * 0.014 * (1 - k * 0.8);
+        } else gesture.kind = null;
+      }
+      const hk = state === "sleeping" ? 1.2 : 7;
+      head.x += (hx - head.x) * ease(hk + (gesture.kind ? 30 : 0));
+      head.y += (hy - head.y) * ease(hk + (gesture.kind ? 30 : 0));
+      head.r += (hr - head.r) * ease(state === "sleeping" ? 1 : 4);
+
       const drift = reduced ? 0 : 1;
       par.x += ((pointer.x * 7 + Math.sin(t * 0.07) * 3) * drift - par.x) * ease(1.5);
       par.y += ((pointer.y * 5 + Math.cos(t * 0.05) * 2) * drift - par.y) * ease(1.5);
@@ -198,6 +239,8 @@ export function Avatar({ offline, light = false }: AvatarProps) {
       gl.uniform1f(U.field, cur.field);
       gl.uniform2f(U.parallax, par.x * dpr, par.y * dpr);
       gl.uniform1f(U.mouth, reduced ? mouth * 0.5 : mouth);
+      const hm = reduced ? 0.3 : 1;
+      gl.uniform3f(U.head, head.x * hm, head.y * hm, head.r * hm);
       lightMix += ((lightRef.current ? 1 : 0) - lightMix) * ease(6);
       gl.uniform1f(U.light, lightMix);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

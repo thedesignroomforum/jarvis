@@ -30,6 +30,7 @@ uniform float uField;      // energy field around the face 0..1
 uniform vec2  uParallax;   // px offset from pointer / slow drift
 uniform float uLight;      // 0 = white dots on black, 1 = dark dots on white
 uniform float uMouth;      // jaw opening 0..1, driven by the voice while speaking
+uniform vec3  uHead;       // head pose: x/y shift (image UV), z roll (radians)
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
 float noise(vec2 p) {
@@ -64,6 +65,18 @@ void main() {
   vec2 pivot = center + vec2(0.0, -size.y * 0.12);
   vec2 p = (frag - pivot) / s + pivot;
   vec2 uv = (p - (center - size * 0.5)) / size;
+
+  // Head pose: the head turns and tilts around the neck while the shoulders stay put.
+  // Only the existing pixels move; nothing is redrawn.
+  {
+    float hw = 1.0 - smoothstep(0.70, 0.93, uv.y);
+    vec2 HP = vec2(0.55, 0.82);                          // neck pivot, image UV
+    vec2 d = (uv - HP) * uImg;                           // to px so rotation keeps proportions
+    float a = uHead.z * hw;
+    float ca = cos(a), sa = sin(a);
+    d = vec2(ca * d.x + sa * d.y, -sa * d.x + ca * d.y);
+    uv = HP + d / uImg - uHead.xy * hw;
+  }
 
   // Mouth: the existing dots below the lip line slide down (jaw opens), the upper lip lifts a
   // touch, and the gap between them stays dark, so the lips part with each syllable.
