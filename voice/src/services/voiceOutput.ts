@@ -14,6 +14,7 @@ export type VoiceEngine = "elevenlabs" | "browser";
 
 // Ranked preferences: calm, deeper, natural-sounding male English voices first.
 const PREFERRED = [
+  /^(Daniel|Arthur|Oliver|Malcolm|Evan|Nathan|Tom|Aaron|Gordon) \((Premium|Enhanced)\)/i, // Apple's high-quality male voices
   /Microsoft (Ryan|Thomas|Guy|Christopher|Andrew|Brian|Davis|Eric|Steffan).*(Natural|Online)/i,
   /Google UK English Male/i,
   /^Daniel( \(Enhanced\)| \(Premium\))?/i,
@@ -122,8 +123,8 @@ export class VoiceOutput {
       u.voice = voice;
       u.lang = voice.lang;
     }
-    u.rate = 0.97; // unhurried
-    u.pitch = 0.88; // slightly deeper
+    u.rate = 1; // natural pace (slowing it down sounds robotic)
+    u.pitch = 1; // altering pitch makes device voices sound synthetic
     u.volume = 1;
 
     return new Promise<boolean>((resolve) => {
