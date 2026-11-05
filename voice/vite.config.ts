@@ -11,6 +11,7 @@ function jarvisApi(): Plugin {
     "/api/chat": { module: "/server/chatHandler.ts", fn: "handleChat" },
     "/api/tts": { module: "/server/ttsHandler.ts", fn: "handleTts" },
     "/api/config": { module: "/server/ttsHandler.ts", fn: "handleConfig" },
+    "/api/diag": { module: "/server/diagHandler.ts", fn: "handleDiag" },
   };
   return {
     name: "jarvis-api",

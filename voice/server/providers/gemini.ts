@@ -1,110 +1,159 @@
-import { ProviderConfigError, type AIProvider, type AIRequest } from "./types.js";
+import { ProviderConfigError, type AIMessage, type AIProvider, type AIRequest } from "./types.js";
 
 /**
- * Google Gemini via its REST API. Has a free tier (no card) at aistudio.google.com/apikey.
- * Set GEMINI_API_KEY. Optional GEMINI_MODEL (default "gemini-flash-latest").
+ * Google Gemini via its REST API. Free tier (no card) at aistudio.google.com/apikey.
+ * Set GEMINI_API_KEY. Optional GEMINI_MODEL to force one model.
+ *
+ * Model names change over time, so when no model is forced we ask Google which models this
+ * key can use and pick the best fast one. Every attempt is recorded so failures are explainable.
  */
 const BASE = "https://generativelanguage.googleapis.com/v1beta";
+const FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.0-flash", "gemini-2.5-flash-lite"];
+const PER_CALL_MS = 15000;
+const TOTAL_MS = 40000;
 
-/** 404, a 5xx/overloaded model, or a 400 saying the model isn't usable. Leaves res readable. */
-async function isMissingModel(res: Response) {
-  if (res.status === 404 || res.status >= 500) return true;
-  if (res.status !== 400) return false;
-  const text = await res.clone().text();
-  return /not found|not supported|is not available|unknown model/i.test(text);
+export interface Attempt {
+  model: string;
+  status: number | "timeout" | "network";
+  ms: number;
+  note?: string;
 }
 
-/** Text models this key can call, best first (Flash, newest version, stable before preview). */
-async function discoverModels(apiKey: string): Promise<string[]> {
+// Survives between requests while the serverless instance stays warm.
+let rememberedModel: string | null = null;
+let discovered: { at: number; models: string[] } | null = null;
+
+const clean = (v?: string) => (v || "").trim().replace(/^["']|["']$/g, "").trim();
+
+export function getGeminiKey(): string {
+  const aiKey = clean(process.env.AI_API_KEY);
+  return clean(process.env.GEMINI_API_KEY) || (process.env.AI_PROVIDER === "gemini" || /^(AIza|AQ\.)/.test(aiKey) ? aiKey : "");
+}
+
+/** Text models this key can call, best first (Flash, newest, stable before preview). */
+export async function discoverModels(apiKey: string): Promise<{ models: string[]; status: number | string }> {
+  if (discovered && Date.now() - discovered.at < 10 * 60_000) return { models: discovered.models, status: "cached" };
   try {
     const r = await fetch(`${BASE}/models?pageSize=1000`, { headers: { "x-goog-api-key": apiKey }, signal: AbortSignal.timeout(6000) });
-    if (!r.ok) return [];
+    if (!r.ok) return { models: [], status: r.status };
     const data = (await r.json()) as { models?: { name: string; supportedGenerationMethods?: string[] }[] };
     const names = (data.models || [])
       .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
       .map((m) => m.name.replace(/^models\//, ""))
-      .filter((n) => /gemini/i.test(n) && !/(image|tts|audio|live|embedding|vision|robotics|computer|native)/i.test(n));
+      .filter((n) => /gemini/i.test(n) && !/(image|tts|audio|live|embedding|vision|robotics|computer|native|thinking)/i.test(n));
     const version = (n: string) => parseFloat(n.match(/(\d+(?:\.\d+)?)/)?.[1] || "0");
     const score = (n: string) =>
-      (/flash/i.test(n) ? 1000 : /pro/i.test(n) ? 500 : 0) -
-      (/lite/i.test(n) ? 200 : 0) -
-      (/(preview|exp)/i.test(n) ? 50 : 0) +
-      version(n) * 10 +
-      (/latest/i.test(n) ? 5 : 0);
-    return names.sort((a, b) => score(b) - score(a)).slice(0, 3);
-  } catch {
-    return [];
+      (/flash/i.test(n) ? 1000 : /pro/i.test(n) ? 300 : 0) -
+      (/lite/i.test(n) ? 100 : 0) -
+      (/(preview|exp)/i.test(n) ? 80 : 0) -
+      (/\d{3,}$|-\d{2}-\d{2}/.test(n) ? 20 : 0) + // dated snapshots after the plain name
+      version(n) * 10;
+    const models = names.sort((a, b) => score(b) - score(a)).slice(0, 5);
+    discovered = { at: Date.now(), models };
+    return { models, status: r.status };
+  } catch (e) {
+    return { models: [], status: (e as Error).name === "TimeoutError" ? "timeout" : "network" };
   }
 }
 
-export function createGeminiProvider(): AIProvider {
-  // Keys pasted into Vercel sometimes carry spaces, quotes or a newline; strip them.
-  const clean = (v?: string) => (v || "").trim().replace(/^["']|["']$/g, "").trim();
-  const aiKey = clean(process.env.AI_API_KEY);
-  const apiKey = clean(process.env.GEMINI_API_KEY) || (process.env.AI_PROVIDER === "gemini" || /^(AIza|AQ\.)/.test(aiKey) ? aiKey : "");
-  if (!apiKey) throw new ProviderConfigError("GEMINI_API_KEY is not set on the server.");
-  // Model names change over time; start with the configured one and discover others if it's gone.
-  let model = clean(process.env.GEMINI_MODEL) || "gemini-flash-latest";
+/** Gemini wants user/model turns that start with the user and alternate. */
+function toContents(messages: AIMessage[]) {
+  const out: { role: "user" | "model"; parts: { text: string }[] }[] = [];
+  for (const m of messages) {
+    const role = m.role === "assistant" ? "model" : "user";
+    if (!out.length && role === "model") continue; // drop a leading greeting
+    const last = out[out.length - 1];
+    if (last && last.role === role) last.parts[0].text += `\n${m.content}`;
+    else out.push({ role, parts: [{ text: m.content }] });
+  }
+  return out;
+}
 
-  return {
-    get name() {
-      return `gemini:${model}`;
-    },
-    async ask(req: AIRequest) {
-      const payload = {
-        systemInstruction: { parts: [{ text: `${req.system}\n\n${req.context}` }] },
-        contents: req.messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
-        generationConfig: { maxOutputTokens: req.voice ? 1024 : 4096, temperature: 0.7 },
-      };
-      // Newer Gemini models "think" before answering, which is slow for voice. Ask for no/minimal
-      // thinking; if a model rejects that setting, retry it without.
-      const lean = JSON.stringify({ ...payload, generationConfig: { ...payload.generationConfig, thinkingConfig: { thinkingBudget: 0 } } });
-      const plain = JSON.stringify(payload);
-      const deadline = Date.now() + 45000;
-      const call = async (m: string, body = lean): Promise<Response | null> => {
-        const left = deadline - Date.now();
-        if (left < 3000) return null;
-        try {
-          const r = await fetch(`${BASE}/models/${encodeURIComponent(m)}:generateContent`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-            body,
-            signal: AbortSignal.timeout(Math.min(15000, left)),
-          });
-          if (body === lean && r.status === 400 && /thinking/i.test(await r.clone().text())) return call(m, plain);
-          return r;
-        } catch {
-          return null; // timed out or network error: try another model
-        }
-      };
+export async function runGemini(req: AIRequest, apiKey: string) {
+  const attempts: Attempt[] = [];
+  const started = Date.now();
+  const payload = {
+    systemInstruction: { parts: [{ text: `${req.system}\n\n${req.context}` }] },
+    contents: toContents(req.messages),
+    generationConfig: { maxOutputTokens: req.voice ? 1024 : 4096, temperature: 0.7 },
+  };
+  // Newer Gemini models "think" first, which is slow for voice. Ask for none; if a model
+  // rejects that setting, retry it without.
+  const lean = JSON.stringify({ ...payload, generationConfig: { ...payload.generationConfig, thinkingConfig: { thinkingBudget: 0 } } });
+  const plain = JSON.stringify(payload);
 
-      let res = await call(model);
-      if (!res || (await isMissingModel(res))) {
-        // Ask Google which models this key can use, and try the best ones in order.
-        for (const m of await discoverModels(apiKey)) {
-          if (m === model) continue;
-          const r = await call(m);
-          if (r) res = r;
-          if (r && !(await isMissingModel(r))) {
-            model = m; // remember it for the next request
-            break;
-          }
-        }
-      }
-      if (!res) throw Object.assign(new Error("Google took too long to answer. Try again in a moment."), { status: 504 });
-      if (!res.ok) {
-        const detail = (await res.text()).slice(0, 400);
-        throw Object.assign(new Error(`gemini ${res.status} (${model}): ${detail}`), { status: res.status });
-      }
+  const call = async (model: string, body = lean): Promise<Response | null> => {
+    const left = TOTAL_MS - (Date.now() - started);
+    if (left < 3000) return null;
+    const t0 = Date.now();
+    try {
+      const r = await fetch(`${BASE}/models/${encodeURIComponent(model)}:generateContent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        body,
+        signal: AbortSignal.timeout(Math.min(PER_CALL_MS, left)),
+      });
+      const note = r.ok ? undefined : (await r.clone().text()).match(/"message":\s*"([^"]{0,140})/)?.[1];
+      attempts.push({ model, status: r.status, ms: Date.now() - t0, note });
+      if (body === lean && r.status === 400 && /thinking/i.test(note || "")) return call(model, plain);
+      return r;
+    } catch (e) {
+      attempts.push({ model, status: (e as Error).name === "TimeoutError" ? "timeout" : "network", ms: Date.now() - t0 });
+      return null;
+    }
+  };
+
+  const forced = clean(process.env.GEMINI_MODEL);
+  let candidates: string[];
+  if (forced) candidates = [forced];
+  else {
+    const found = await discoverModels(apiKey);
+    candidates = [...new Set([...(rememberedModel ? [rememberedModel] : []), ...found.models, ...FALLBACK_MODELS])];
+  }
+
+  for (const model of candidates.slice(0, 5)) {
+    const res = await call(model);
+    if (!res) continue; // timeout / network: try the next model
+    if (res.ok) {
       const data = (await res.json()) as {
-        candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+        candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[];
         promptFeedback?: { blockReason?: string };
       };
+      rememberedModel = model;
       if (data.promptFeedback?.blockReason) {
-        return "I can't help with that one as asked. Tell me what you're actually trying to achieve and I'll find a better route.";
+        return { text: "I can't help with that one as asked. Tell me what you're actually trying to achieve and I'll find a better route.", attempts, model };
       }
-      const text = (data.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("").trim();
-      return text || "I don't have a good answer to that yet.";
+      const text = (data.candidates?.[0]?.content?.parts || [])
+        .filter((p) => !p.thought)
+        .map((p) => p.text || "")
+        .join("")
+        .trim();
+      return { text: text || "I don't have a good answer to that yet.", attempts, model };
+    }
+    // A bad key or exhausted quota won't be fixed by another model.
+    if (res.status === 401 || res.status === 403 || res.status === 429) break;
+    if (res.status === 400 && !/not found|not supported|unknown model|is not available/i.test(attempts.at(-1)?.note || "")) break;
+  }
+  return { text: null, attempts, model: null };
+}
+
+export function describeAttempts(attempts: Attempt[]): string {
+  return attempts.map((a) => `${a.model}: ${a.status} in ${(a.ms / 1000).toFixed(1)}s${a.note ? ` (${a.note})` : ""}`).join("; ");
+}
+
+export function createGeminiProvider(): AIProvider {
+  const apiKey = getGeminiKey();
+  if (!apiKey) throw new ProviderConfigError("GEMINI_API_KEY is not set on the server.");
+  return {
+    get name() {
+      return `gemini:${rememberedModel || "auto"}`;
+    },
+    async ask(req: AIRequest) {
+      const result = await runGemini(req, apiKey);
+      if (result.text !== null) return result.text;
+      const last = result.attempts.at(-1);
+      const status = typeof last?.status === "number" ? last.status : 504;
+      throw Object.assign(new Error(`gemini failed: ${describeAttempts(result.attempts) || "no attempts"}`), { status, attempts: result.attempts });
     },
   };
 }

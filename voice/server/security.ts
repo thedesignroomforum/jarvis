@@ -3,10 +3,11 @@
 const hits = new Map<string, number[]>();
 
 /** Optional shared secret so strangers can't spend your API credits. */
-export function checkAccess(req: Request): Response | null {
+export function checkAccess(req: Request, allowQuery = false): Response | null {
   const code = process.env.JARVIS_ACCESS_CODE;
   if (!code) return null;
   if (req.headers.get("x-jarvis-access") === code) return null;
+  if (allowQuery && new URL(req.url).searchParams.get("code") === code) return null;
   return json({ error: "ACCESS_CODE_REQUIRED" }, 401);
 }
 

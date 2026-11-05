@@ -100,6 +100,13 @@ export async function handleChat(req: Request): Promise<Response> {
 /** A short, secret-free reason so the owner can see what went wrong without opening server logs. */
 function explain(err: unknown): string {
   const msg = String((err as { message?: string })?.message || err || "");
+  if (msg.startsWith("gemini failed:")) {
+    const all = msg.slice(14).trim().replace(/(AIza|AQ\.|sk-)[\w.\-]{8,}/g, "[key]");
+    if (/timeout/.test(all) && !/: [45]\d\d/.test(all)) return `Google didn't answer in time. Tried ${all}`.slice(0, 300);
+    if (/: (401|403)/.test(all) || /API key|API_KEY/i.test(all)) return `The AI key was rejected. ${all}`.slice(0, 300);
+    if (/: 429/.test(all)) return `The free Gemini limit is used up for now. ${all}`.slice(0, 300);
+    return `Google said: ${all}`.slice(0, 300);
+  }
   const status = Number((err as { status?: number })?.status) || Number(msg.match(/\b(\d{3})\b/)?.[1]) || 0;
   if (status === 401 || status === 403 || /api key|API_KEY_INVALID|authentication|permission/i.test(msg))
     return "The AI key was rejected. Check the key in Vercel's Environment Variables, then redeploy.";
