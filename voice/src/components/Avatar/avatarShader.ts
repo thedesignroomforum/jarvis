@@ -132,6 +132,8 @@ void main() {
   float outL = lum * mix(0.55, 1.0, vig) + particles + halo + grain;
   float L = clamp(outL, 0.0, 1.0);
   // Light mode inverts the exposure: the same dots, ink on paper.
-  float ink = 1.0 - min(1.0, L * 1.1) * 0.94;
+  // Boost the dots strongly (and lift the faint ones) so the head reads clearly on white.
+  float Lk = clamp((lum * mix(0.8, 1.0, vig) + particles + halo) * 2.2, 0.0, 1.0);
+  float ink = 1.0 - pow(Lk, 0.6) * 0.97;
   gl_FragColor = vec4(vec3(mix(L, ink, uLight)), 1.0);
 }`;
