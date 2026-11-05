@@ -17,7 +17,7 @@ async function isMissingModel(res: Response) {
 /** Text models this key can call, best first (Flash, newest version, stable before preview). */
 async function discoverModels(apiKey: string): Promise<string[]> {
   try {
-    const r = await fetch(`${BASE}/models?pageSize=1000`, { headers: { "x-goog-api-key": apiKey } });
+    const r = await fetch(`${BASE}/models?pageSize=1000`, { headers: { "x-goog-api-key": apiKey }, signal: AbortSignal.timeout(6000) });
     if (!r.ok) return [];
     const data = (await r.json()) as { models?: { name: string; supportedGenerationMethods?: string[] }[] };
     const names = (data.models || [])
@@ -31,7 +31,7 @@ async function discoverModels(apiKey: string): Promise<string[]> {
       (/(preview|exp)/i.test(n) ? 50 : 0) +
       version(n) * 10 +
       (/latest/i.test(n) ? 5 : 0);
-    return names.sort((a, b) => score(b) - score(a)).slice(0, 6);
+    return names.sort((a, b) => score(b) - score(a)).slice(0, 3);
   } catch {
     return [];
   }
@@ -61,12 +61,15 @@ export function createGeminiProvider(): AIProvider {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
           body,
+          signal: AbortSignal.timeout(15000), // never leave JARVIS "thinking" for long
         });
+      const started = Date.now();
       let res = await call(model);
       if (await isMissingModel(res)) {
         // Ask Google which models this key can use, and try the best ones in order.
         for (const m of await discoverModels(apiKey)) {
           if (m === model) continue;
+          if (Date.now() - started > 35000) break; // stay well inside the function time limit
           res = await call(m);
           if (!(await isMissingModel(res))) {
             model = m; // remember it for the next request
