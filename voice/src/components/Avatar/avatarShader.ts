@@ -28,6 +28,7 @@ uniform float uGlitch;     // wake-up glitch 0..1
 uniform float uZoom;       // forward movement (0 = rest)
 uniform float uField;      // energy field around the face 0..1
 uniform vec2  uParallax;   // px offset from pointer / slow drift
+uniform float uMouth;      // jaw opening 0..1, driven by the voice while speaking
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
 float noise(vec2 p) {
@@ -63,6 +64,21 @@ void main() {
   vec2 p = (frag - pivot) / s + pivot;
   vec2 uv = (p - (center - size * 0.5)) / size;
 
+  // Mouth: the existing dots below the lip line slide down (jaw opens), the upper lip lifts a
+  // touch, and the gap between them stays dark, so the lips part with each syllable.
+  vec2 MC = vec2(0.552, 0.657);                         // where the lips meet, in image UV
+  float side = 1.0 - smoothstep(0.07, 0.19, abs(uv.x - MC.x));
+  float open = uMouth * 0.026;
+  float mouthDark = 0.0;
+  if (uv.y > MC.y) {
+    float below = 1.0 - smoothstep(0.09, 0.20, uv.y - MC.y);
+    float src = uv.y - open * side * below;
+    if (src < MC.y) mouthDark = 1.0; else uv.y = src;
+  } else {
+    float above = 1.0 - smoothstep(0.0, 0.035, MC.y - uv.y);
+    uv.y += open * 0.3 * side * above;
+  }
+
   // Dot-field drift: a very low-amplitude flow so individual dots shimmer and shift.
   float t = uTime;
   vec2 flow = vec2(noise(uv * 7.0 + vec2(t * 0.11, 0.0)), noise(uv * 7.0 + vec2(13.7, -t * 0.09))) - 0.5;
@@ -78,7 +94,7 @@ void main() {
   float slice = step(1.0 - 0.22 * uGlitch, g) * (hash(vec2(band + 9.1, tick)) - 0.5) * 0.05 * uGlitch;
   uv.x += slice;
 
-  float lum = sampleLum(uv);
+  float lum = sampleLum(uv) * (1.0 - mouthDark);
   // A faint monochrome "ghost" during the glitch (offset copy), keeps it cinematic, not colourful.
   lum = max(lum, sampleLum(uv + vec2(0.006 * uGlitch, 0.0)) * 0.35 * uGlitch);
 

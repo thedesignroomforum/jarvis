@@ -93,7 +93,7 @@ export function Avatar({ offline }: AvatarProps) {
     const u = (name: string) => gl.getUniformLocation(program, name);
     const U = {
       res: u("uRes"), img: u("uImg"), fit: u("uFit"), time: u("uTime"), bright: u("uBright"), motion: u("uMotion"),
-      level: u("uLevel"), think: u("uThink"), glitch: u("uGlitch"), zoom: u("uZoom"), field: u("uField"), parallax: u("uParallax"),
+      level: u("uLevel"), think: u("uThink"), glitch: u("uGlitch"), zoom: u("uZoom"), field: u("uField"), parallax: u("uParallax"), mouth: u("uMouth"),
     };
 
     const tex = gl.createTexture();
@@ -139,6 +139,7 @@ export function Avatar({ offline }: AvatarProps) {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const cur: Params = { bright: 0, motion: 0.3, think: 0, glitch: 0, zoom: 0, field: 0 };
     let level = 0;
+    let mouth = 0;
     const par = { x: 0, y: 0 };
     let last = performance.now();
     let raf = 0;
@@ -169,6 +170,10 @@ export function Avatar({ offline }: AvatarProps) {
       const raw = state === "listening" || state === "speaking" ? audioLevel.current : 0;
       level += (raw - level) * ease(raw > level ? 18 : 6);
 
+      // Mouth follows the voice much faster than the glow, so it opens and closes per syllable.
+      const speech = state === "speaking" ? Math.min(1, Math.pow(audioLevel.current, 0.8) * 1.15) : 0;
+      mouth += (speech - mouth) * ease(speech > mouth ? 30 : 16);
+
       const drift = reduced ? 0 : 1;
       par.x += ((pointer.x * 7 + Math.sin(t * 0.07) * 3) * drift - par.x) * ease(1.5);
       par.y += ((pointer.y * 5 + Math.cos(t * 0.05) * 2) * drift - par.y) * ease(1.5);
@@ -187,6 +192,7 @@ export function Avatar({ offline }: AvatarProps) {
       gl.uniform1f(U.zoom, cur.zoom);
       gl.uniform1f(U.field, cur.field);
       gl.uniform2f(U.parallax, par.x * dpr, par.y * dpr);
+      gl.uniform1f(U.mouth, reduced ? mouth * 0.5 : mouth);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     };
     raf = requestAnimationFrame(frame);
