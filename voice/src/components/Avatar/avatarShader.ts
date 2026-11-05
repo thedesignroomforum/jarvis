@@ -54,9 +54,10 @@ float sampleLum(vec2 uv) {
 void main() {
   vec2 frag = vec2(vUv.x, 1.0 - vUv.y) * uRes;          // top-left origin, px
   float scale = (uRes.y * uFit) / uImg.y;
-  scale = min(scale, (uRes.x * 0.98) / uImg.x);            // never crop the face horizontally
+  scale = min(scale, (uRes.x * 1.45) / uImg.x);            // the face (~55% of the image width) stays in view
   vec2 size = uImg * scale;
-  vec2 center = vec2(uRes.x * 0.5, uRes.y * 0.5 + uRes.y * (1.0 - uFit) * 0.15) + uParallax;
+  // Close-up: the face sits high enough that the mouth stays clear of the wake button.
+  vec2 center = vec2(uRes.x * 0.5, uRes.y * 0.5 + size.y * 0.01) + uParallax;
 
   // Breathing + voice-driven scale + forward movement on wake.
   float breath = 1.0 + sin(uTime * 0.55) * 0.0045 * uMotion;

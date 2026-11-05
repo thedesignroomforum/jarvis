@@ -228,7 +228,7 @@ export function Avatar({ offline, light = false }: AvatarProps) {
       const portrait = canvas.height > canvas.width;
       gl.uniform2f(U.res, canvas.width, canvas.height);
       gl.uniform2f(U.img, imgW, imgH);
-      gl.uniform1f(U.fit, portrait ? 0.78 : 0.98);
+      gl.uniform1f(U.fit, portrait ? 1.05 : 1.28);
       gl.uniform1f(U.time, reduced ? 0 : t);
       gl.uniform1f(U.bright, cur.bright);
       gl.uniform1f(U.motion, reduced ? 0 : cur.motion);
