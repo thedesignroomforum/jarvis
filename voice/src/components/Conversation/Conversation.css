@@ -1,0 +1,38 @@
+.convo {
+  width: min(380px, calc(100vw - 32px));
+  max-height: min(42vh, 380px);
+  display: flex;
+  flex-direction: column;
+  mask-image: linear-gradient(to bottom, transparent, #000 22%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%);
+}
+.convo__list {
+  list-style: none;
+  margin: 0;
+  padding: 40px 4px 0 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.convo__item { animation: convo-in 400ms cubic-bezier(.2,.7,.2,1) both; }
+.convo__who {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.28em;
+  color: rgba(255, 255, 255, 0.38);
+  margin-bottom: 4px;
+}
+.convo__text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.82);
+  white-space: pre-wrap;
+}
+.convo__item--user .convo__text { color: rgba(255, 255, 255, 0.6); }
+.convo__item--system .convo__text { color: rgba(255, 255, 255, 0.5); font-size: 12px; }
+.convo__item--interim .convo__text { color: rgba(255, 255, 255, 0.45); font-style: italic; }
+@keyframes convo-in { from { opacity: 0; transform: translateY(6px); } }

@@ -1,0 +1,73 @@
+.wake {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 999px;
+}
+.wake:disabled { cursor: default; }
+.wake__rings {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+}
+.wake__ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  transition: transform 600ms cubic-bezier(.2,.7,.2,1), opacity 600ms, border-color 600ms;
+}
+.wake__ring--outer { inset: 0; }
+.wake__ring--inner { inset: 12px; border-color: rgba(255, 255, 255, 0.35); }
+.wake__core {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
+  transition: transform 400ms, opacity 400ms;
+}
+.wake:hover .wake__ring--outer { transform: scale(1.06); border-color: rgba(255, 255, 255, 0.4); }
+.wake:focus-visible { outline: 1px solid rgba(255,255,255,.7); outline-offset: 6px; }
+
+.wake__label {
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.86);
+  padding-left: 0.32em; /* optical centring for letter-spacing */
+}
+.wake__hint {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.35);
+  margin-top: -8px;
+  text-transform: uppercase;
+}
+
+/* States */
+.wake[data-state="sleeping"] .wake__ring--outer { animation: wake-idle 6s ease-in-out infinite; }
+.wake[data-state="ready"] .wake__ring--outer { animation: wake-idle 4s ease-in-out infinite; }
+.wake[data-state="listening"] .wake__ring--outer { animation: wake-pulse 1.6s ease-out infinite; border-color: rgba(255,255,255,.55); }
+.wake[data-state="listening"] .wake__ring--inner { animation: wake-pulse 1.6s ease-out .4s infinite; }
+.wake[data-state="thinking"] .wake__ring--outer { border-style: dashed; animation: wake-spin 9s linear infinite; }
+.wake[data-state="thinking"] .wake__core { animation: wake-blink 1.4s ease-in-out infinite; }
+.wake[data-state="speaking"] .wake__ring--inner { animation: wake-speak .9s ease-in-out infinite; }
+.wake[data-state="waking"] .wake__core { transform: scale(2.2); }
+
+@keyframes wake-idle { 50% { transform: scale(1.04); opacity: .7; } }
+@keyframes wake-pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+@keyframes wake-spin { to { transform: rotate(360deg); } }
+@keyframes wake-blink { 50% { opacity: .3; } }
+@keyframes wake-speak { 50% { transform: scale(1.15); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .wake * { animation: none !important; }
+}

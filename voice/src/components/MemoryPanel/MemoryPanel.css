@@ -1,0 +1,34 @@
+.sheet {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(360px, 100vw);
+  z-index: 30;
+  background: rgba(6, 6, 7, 0.94);
+  backdrop-filter: blur(14px);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 24px 22px 40px;
+  overflow-y: auto;
+  animation: sheet-in 320ms cubic-bezier(.2,.7,.2,1);
+}
+@keyframes sheet-in { from { transform: translateX(24px); opacity: 0; } }
+.sheet__head { display: flex; justify-content: space-between; align-items: center; }
+.sheet__head--sub { margin-top: 34px; }
+.sheet__title { font-size: 10.5px; letter-spacing: .3em; color: rgba(255,255,255,.7); }
+.sheet__close { background: none; border: 0; color: rgba(255,255,255,.6); font-size: 22px; cursor: pointer; line-height: 1; }
+.sheet__note { font-size: 12px; line-height: 1.55; color: rgba(255,255,255,.42); font-weight: 300; margin: 10px 0 14px; }
+.sheet__empty { font-size: 13px; color: rgba(255,255,255,.5); font-weight: 300; }
+.sheet__group h3 { font-size: 9.5px; letter-spacing: .26em; color: rgba(255,255,255,.4); font-weight: 500; margin: 18px 0 8px; }
+.sheet__group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.sheet__group li { display: flex; gap: 10px; justify-content: space-between; font-size: 13px; font-weight: 300; color: rgba(255,255,255,.82); line-height: 1.45; }
+.sheet__group li button, .sheet__danger {
+  background: none; border: 0; color: rgba(255,255,255,.35); font: inherit; font-size: 11px; cursor: pointer; flex-shrink: 0;
+}
+.sheet__group li button:hover { color: #fff; text-decoration: underline; }
+.sheet__danger { margin-top: 18px; color: rgba(255,255,255,.5); padding: 0; text-decoration: underline; }
+.sheet__row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,.06); font-size: 13px; color: rgba(255,255,255,.85); font-weight: 300; }
+.sheet__row small { display: block; font-size: 11px; color: rgba(255,255,255,.4); margin-top: 3px; }
+.sheet__row--col { flex-direction: column; align-items: stretch; }
+.sheet__row select { background: #111; color: #fff; border: 1px solid rgba(255,255,255,.15); border-radius: 8px; padding: 8px; font: inherit; font-size: 12.5px; }
+.sheet__row input[type="checkbox"] { accent-color: #fff; width: 16px; height: 16px; }

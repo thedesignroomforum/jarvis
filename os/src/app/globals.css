@@ -1,0 +1,220 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Design tokens. Dark is the default; light is opt-in from Settings or the header toggle. */
+:root {
+  --bg: #f6f6f4;
+  --surface: #ffffff;
+  --surface-2: #f0f0ed;
+  --border: rgba(10, 10, 12, 0.09);
+  --border-strong: rgba(10, 10, 12, 0.16);
+  --text: #111113;
+  --muted: #6b6b70;
+  --faint: #9b9ba0;
+  --accent: #1a6dff;
+  --accent-soft: rgba(26, 109, 255, 0.1);
+  --warn: #b7791f;
+  --ok: #1f8a4c;
+  --danger: #c2352b;
+  --orb-dot: 17, 17, 19;
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --bg: #08080a;
+  --surface: #0f0f12;
+  --surface-2: #16161a;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text: #ededef;
+  --muted: #8d8d94;
+  --faint: #5c5c63;
+  --accent: #8fb8ff;
+  --accent-soft: rgba(143, 184, 255, 0.1);
+  --warn: #e9b44c;
+  --ok: #5fd08a;
+  --danger: #ff6b5e;
+  --orb-dot: 236, 238, 242;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-warn: var(--warn);
+  --color-ok: var(--ok);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+/* Shared primitives (in the components layer so utilities can override them) */
+@layer components {
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background 150ms, border-color 150ms, opacity 150ms, transform 150ms;
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+}
+.btn:hover {
+  background: var(--surface-2);
+}
+.btn:active {
+  transform: scale(0.98);
+}
+.btn:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.btn-primary {
+  background: var(--text);
+  color: var(--bg);
+  border-color: transparent;
+}
+.btn-primary:hover {
+  background: var(--text);
+  opacity: 0.88;
+}
+.btn-ghost {
+  border-color: transparent;
+}
+
+.input {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  outline: none;
+  transition: border-color 150ms, box-shadow 150ms;
+}
+.input:focus {
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.input::placeholder {
+  color: var(--faint);
+}
+
+.label {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Chat markdown */
+.prose-jarvis {
+  line-height: 1.65;
+  font-size: 0.95rem;
+}
+.prose-jarvis > * + * {
+  margin-top: 0.75em;
+}
+.prose-jarvis h1,
+.prose-jarvis h2,
+.prose-jarvis h3 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-top: 1.2em;
+}
+.prose-jarvis h1 { font-size: 1.2rem; }
+.prose-jarvis h2 { font-size: 1.08rem; }
+.prose-jarvis h3 { font-size: 0.98rem; }
+.prose-jarvis ul { list-style: disc; padding-left: 1.25rem; }
+.prose-jarvis ol { list-style: decimal; padding-left: 1.25rem; }
+.prose-jarvis li + li { margin-top: 0.25em; }
+.prose-jarvis a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.prose-jarvis strong { font-weight: 600; }
+.prose-jarvis code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.1em 0.35em;
+}
+.prose-jarvis pre {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  overflow-x: auto;
+}
+.prose-jarvis pre code { background: none; border: 0; padding: 0; }
+.prose-jarvis blockquote {
+  border-left: 2px solid var(--border-strong);
+  padding-left: 0.9rem;
+  color: var(--muted);
+}
+.prose-jarvis table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.prose-jarvis th, .prose-jarvis td { border-bottom: 1px solid var(--border); padding: 0.4rem 0.5rem; text-align: left; }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.fade-up { animation: fade-up 260ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+@keyframes blink { 50% { opacity: 0; } }
+.caret::after {
+  content: "";
+  display: inline-block;
+  width: 0.5em;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  background: var(--text);
+  animation: blink 1s steps(1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

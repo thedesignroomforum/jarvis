@@ -1,0 +1,29 @@
+.avatar {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #000;
+}
+
+/* No-WebGL fallback: the same image, with CSS breathing and state-driven exposure. */
+.avatar--fallback {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.avatar--fallback img {
+  height: 96%;
+  max-width: 98%;
+  object-fit: contain;
+  filter: brightness(var(--avatar-bright, 0.6));
+  transition: filter 1.2s ease;
+  animation: avatar-breathe 7s ease-in-out infinite;
+}
+.avatar--fallback[data-offline="true"] img {
+  --avatar-bright: 0.18;
+}
+@keyframes avatar-breathe {
+  50% { transform: scale(1.006); }
+}
