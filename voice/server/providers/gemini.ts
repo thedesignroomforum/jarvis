@@ -51,32 +51,47 @@ export function createGeminiProvider(): AIProvider {
       return `gemini:${model}`;
     },
     async ask(req: AIRequest) {
-      const body = JSON.stringify({
+      const payload = {
         systemInstruction: { parts: [{ text: `${req.system}\n\n${req.context}` }] },
         contents: req.messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
         generationConfig: { maxOutputTokens: req.voice ? 1024 : 4096, temperature: 0.7 },
-      });
-      const call = (m: string) =>
-        fetch(`${BASE}/models/${encodeURIComponent(m)}:generateContent`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-          body,
-          signal: AbortSignal.timeout(15000), // never leave JARVIS "thinking" for long
-        });
-      const started = Date.now();
+      };
+      // Newer Gemini models "think" before answering, which is slow for voice. Ask for no/minimal
+      // thinking; if a model rejects that setting, retry it without.
+      const lean = JSON.stringify({ ...payload, generationConfig: { ...payload.generationConfig, thinkingConfig: { thinkingBudget: 0 } } });
+      const plain = JSON.stringify(payload);
+      const deadline = Date.now() + 45000;
+      const call = async (m: string, body = lean): Promise<Response | null> => {
+        const left = deadline - Date.now();
+        if (left < 3000) return null;
+        try {
+          const r = await fetch(`${BASE}/models/${encodeURIComponent(m)}:generateContent`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+            body,
+            signal: AbortSignal.timeout(Math.min(15000, left)),
+          });
+          if (body === lean && r.status === 400 && /thinking/i.test(await r.clone().text())) return call(m, plain);
+          return r;
+        } catch {
+          return null; // timed out or network error: try another model
+        }
+      };
+
       let res = await call(model);
-      if (await isMissingModel(res)) {
+      if (!res || (await isMissingModel(res))) {
         // Ask Google which models this key can use, and try the best ones in order.
         for (const m of await discoverModels(apiKey)) {
           if (m === model) continue;
-          if (Date.now() - started > 35000) break; // stay well inside the function time limit
-          res = await call(m);
-          if (!(await isMissingModel(res))) {
+          const r = await call(m);
+          if (r) res = r;
+          if (r && !(await isMissingModel(r))) {
             model = m; // remember it for the next request
             break;
           }
         }
       }
+      if (!res) throw Object.assign(new Error("Google took too long to answer. Try again in a moment."), { status: 504 });
       if (!res.ok) {
         const detail = (await res.text()).slice(0, 400);
         throw Object.assign(new Error(`gemini ${res.status} (${model}): ${detail}`), { status: res.status });
