@@ -105,7 +105,13 @@ function explain(err: unknown): string {
     return "The AI key was rejected. Check the key in Vercel's Environment Variables, then redeploy.";
   if (status === 429 || /quota|rate|exhausted/i.test(msg)) return "The AI provider's free limit is used up for now. Try again later.";
   if (status === 402 || /credit|billing|balance/i.test(msg)) return "The AI account has no credit.";
-  if (status === 404 || /not found|model/i.test(msg)) return "The AI model name wasn't found.";
+  if (status === 404 || /not found|not supported/i.test(msg)) return `The AI model wasn't available: ${providerMessage(msg)}`;
   if (status >= 500) return "The AI provider is having problems right now.";
-  return "Unexpected AI error.";
+  return `Unexpected AI error: ${providerMessage(msg)}`;
+}
+
+/** The provider's own error text, trimmed, with anything key-like removed. */
+function providerMessage(msg: string): string {
+  const m = msg.match(/"message":\s*"([^"]+)"/)?.[1] || msg;
+  return m.replace(/(AIza|AQ\.|sk-)[\w.\-]{8,}/g, "[key]").slice(0, 160);
 }
