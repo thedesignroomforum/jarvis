@@ -59,6 +59,8 @@ interface SpeakOptions {
   onStart?: () => void;
 }
 
+let warnedReason = "";
+
 export class VoiceOutput {
   private audio: HTMLAudioElement | null = null;
   private raf = 0;
@@ -74,8 +76,13 @@ export class VoiceOutput {
     if (opts.engine === "elevenlabs") {
       try {
         return await this.speakElevenLabs(text, opts);
-      } catch {
-        // Fall through to the device voice if ElevenLabs fails (quota, network).
+      } catch (e) {
+        // Fall back to the device voice if ElevenLabs fails (quota, network), and say why once.
+        const reason = (e as Error).message;
+        if (reason && reason !== warnedReason && (e as Error).name !== "AbortError") {
+          warnedReason = reason;
+          window.dispatchEvent(new CustomEvent("jarvis:notice", { detail: `Premium voice unavailable, using the device voice. ${reason}` }));
+        }
       }
     }
     return this.speakBrowser(text, opts);
@@ -90,7 +97,10 @@ export class VoiceOutput {
       body: JSON.stringify({ text }),
       signal: ac.signal,
     });
-    if (!res.ok) throw new Error(`tts ${res.status}`);
+    if (!res.ok) {
+      const d = (await res.json().catch(() => null)) as { reason?: string } | null;
+      throw new Error(d?.reason || `Voice service error ${res.status}.`);
+    }
     const blob = await res.blob();
     if (ac.signal.aborted) return false;
 

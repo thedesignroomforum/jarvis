@@ -434,6 +434,11 @@ export function useJarvis() {
 
   // ── Startup & cleanup ─────────────────────────────────────────────────
   useEffect(() => {
+    const onNotice = (e: Event) => setNotice((e as CustomEvent<string>).detail);
+    window.addEventListener("jarvis:notice", onNotice);
+    return () => window.removeEventListener("jarvis:notice", onNotice);
+  }, []);
+  useEffect(() => {
     getServerConfig().then((c) => {
       setAiConfigured(c.ai);
       setEngine(c.elevenlabs ? "elevenlabs" : "browser");

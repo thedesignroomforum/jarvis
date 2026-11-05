@@ -1,5 +1,6 @@
 import { discoverModels, getGeminiKey, runGemini } from "./providers/gemini.js";
 import { checkAccess, json, rateLimit } from "./security.js";
+import { elevenError, elevenKey, elevenTts } from "./ttsHandler.js";
 
 /**
  * GET /api/diag — a quick health check the owner can open in a browser.
@@ -33,6 +34,20 @@ export async function handleDiag(req: Request): Promise<Response> {
     report.test = { ok: run.text !== null, reply: run.text, model: run.model, attempts: run.attempts };
   } else {
     report.test = "No Gemini key found on the server.";
+  }
+  const ek = elevenKey();
+  if (ek) {
+    const t0 = Date.now();
+    try {
+      const r = await elevenTts(ek, "OK.", AbortSignal.timeout(15000));
+      report.elevenlabs = r.ok
+        ? { ok: true, status: r.status, ms: Date.now() - t0 }
+        : { ok: false, status: r.status, ms: Date.now() - t0, reason: elevenError(r.status, await r.text().catch(() => "")) };
+    } catch (e) {
+      report.elevenlabs = { ok: false, reason: (e as Error).name === "TimeoutError" ? "ElevenLabs did not answer in 15s" : "Could not reach ElevenLabs" };
+    }
+  } else {
+    report.elevenlabs = "No ELEVENLABS_API_KEY on the server (add it, then Redeploy).";
   }
   return json(report, 200);
 }
