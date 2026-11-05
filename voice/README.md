@@ -44,6 +44,8 @@ Other commands:
 
 ## 3. Where the AI API key goes
 
+**Free option:** create a Google Gemini key at https://aistudio.google.com/apikey (no card needed) and set `GEMINI_API_KEY=...`. If only that key is set, JARVIS uses Gemini automatically. Claude (below) gives the best answers but needs paid API credit.
+
 Put the key in `.env.local`. This file is git-ignored.
 
 ```

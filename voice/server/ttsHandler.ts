@@ -46,7 +46,7 @@ export async function handleTts(req: Request): Promise<Response> {
 /** Which optional services are configured (booleans only). */
 export function handleConfig(): Response {
   return json({
-    ai: Boolean(process.env.AI_API_KEY || process.env.ANTHROPIC_API_KEY),
+    ai: Boolean(process.env.AI_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.GEMINI_API_KEY),
     elevenlabs: Boolean(process.env.ELEVENLABS_API_KEY),
     accessCode: Boolean(process.env.JARVIS_ACCESS_CODE),
   });

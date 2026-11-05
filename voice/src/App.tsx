@@ -88,7 +88,7 @@ function Jarvis() {
         {jarvis.aiConfigured === false && !jarvis.notice && (
           <p className="notice notice--quiet">
             <span>
-              AI is not configured yet. Add <code>AI_API_KEY</code> to <code>.env.local</code> and restart.
+              AI is not configured yet. Add <code>GEMINI_API_KEY</code> (free) or <code>AI_API_KEY</code> on the server.
             </span>
           </p>
         )}
