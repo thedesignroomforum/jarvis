@@ -106,7 +106,7 @@ function explain(err: unknown): string {
   if (status === 429 || /quota|rate|exhausted/i.test(msg)) return "The AI provider's free limit is used up for now. Try again later.";
   if (status === 402 || /credit|billing|balance/i.test(msg)) return "The AI account has no credit.";
   if (status === 404 || /not found|not supported/i.test(msg)) return `The AI model wasn't available: ${providerMessage(msg)}`;
-  if (status >= 500) return "The AI provider is having problems right now.";
+  if (status >= 500) return `The AI provider is having problems right now: ${providerMessage(msg)}`;
   return `Unexpected AI error: ${providerMessage(msg)}`;
 }
 

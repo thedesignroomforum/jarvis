@@ -6,9 +6,9 @@ import { ProviderConfigError, type AIProvider, type AIRequest } from "./types.js
  */
 const BASE = "https://generativelanguage.googleapis.com/v1beta";
 
-/** 404, or a 400 saying the model isn't found / doesn't support generateContent. Leaves res readable. */
+/** 404, a 5xx/overloaded model, or a 400 saying the model isn't usable. Leaves res readable. */
 async function isMissingModel(res: Response) {
-  if (res.status === 404) return true;
+  if (res.status === 404 || res.status >= 500) return true;
   if (res.status !== 400) return false;
   const text = await res.clone().text();
   return /not found|not supported|is not available|unknown model/i.test(text);
