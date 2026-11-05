@@ -75,7 +75,7 @@ export async function runGemini(req: AIRequest, apiKey: string) {
   const payload = {
     systemInstruction: { parts: [{ text: `${req.system}\n\n${req.context}` }] },
     contents: toContents(req.messages),
-    generationConfig: { maxOutputTokens: req.voice ? 1024 : 4096, temperature: 0.7 },
+    generationConfig: { maxOutputTokens: req.voice ? 500 : 4096, temperature: 0.7 },
   };
   // Newer Gemini models "think" first, which is slow for voice. Ask for none; if a model
   // rejects that setting, retry it without.
@@ -104,16 +104,19 @@ export async function runGemini(req: AIRequest, apiKey: string) {
   };
 
   const forced = clean(process.env.GEMINI_MODEL);
-  let candidates: string[];
-  if (forced) candidates = [forced];
-  else {
-    const found = await discoverModels(apiKey);
-    candidates = [...new Set([...(rememberedModel ? [rememberedModel] : []), ...found.models, ...FALLBACK_MODELS])];
-  }
+  // Fast path: go straight to the model that worked last (or the usual best one). Only ask
+  // Google for its model list if that one isn't available.
+  let candidates: string[] = forced ? [forced] : [rememberedModel || FALLBACK_MODELS[0]];
+  let discoveredList = !!forced;
 
-  for (const model of candidates.slice(0, 5)) {
+  for (let i = 0; i < candidates.length && i < 6; i++) {
+    const model = candidates[i];
     const res = await call(model);
-    if (!res) continue; // timeout / network: try the next model
+    if (!res) {
+      // timeout / network: try the next model
+      if (!discoveredList && i === candidates.length - 1) candidates = [...new Set([...candidates, ...FALLBACK_MODELS])];
+      continue;
+    }
     if (res.ok) {
       const data = (await res.json()) as {
         candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[];
@@ -133,6 +136,11 @@ export async function runGemini(req: AIRequest, apiKey: string) {
     // A bad key or exhausted quota won't be fixed by another model.
     if (res.status === 401 || res.status === 403 || res.status === 429) break;
     if (res.status === 400 && !/not found|not supported|unknown model|is not available/i.test(attempts.at(-1)?.note || "")) break;
+    if (!discoveredList && i === candidates.length - 1) {
+      discoveredList = true;
+      const found = await discoverModels(apiKey);
+      candidates = [...new Set([...candidates, ...found.models, ...FALLBACK_MODELS])];
+    }
   }
   return { text: null, attempts, model: null };
 }

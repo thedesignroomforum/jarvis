@@ -101,6 +101,6 @@ Your job is not to live Adebayo's life for him. It is to help him become capable
 /** Extra rules appended when the reply will be spoken aloud. */
 export const VOICE_RULES = `VOICE OUTPUT RULES (this reply will be spoken aloud)
 - Plain spoken sentences only: no markdown, bullet symbols, headings, tables, emojis or URLs.
-- Usually 1–4 sentences (under ~80 words). If he asks for depth, give the key point first and offer to go deeper.
+- Answer in the first sentence. Usually 1–3 short sentences (under ~50 words). If he asks for depth, give the key point first and offer to go deeper.
 - Numbers and money should read naturally (e.g. "five hundred thousand naira").
 - Address him naturally; "sir" is fine occasionally, never every sentence.`;

@@ -61,6 +61,14 @@ interface SpeakOptions {
 
 let warnedReason = "";
 
+/** First sentence on its own (so it can start playing fast), then the rest in one piece. */
+export function splitForSpeech(text: string): string[] {
+  const t = text.trim();
+  const m = t.match(/^(.{12,220}?[.!?])\s+(?=\S)/s);
+  if (!m || t.length < 90) return [t];
+  return [m[1], t.slice(m[0].length)];
+}
+
 export class VoiceOutput {
   private audio: HTMLAudioElement | null = null;
   private raf = 0;
@@ -88,23 +96,52 @@ export class VoiceOutput {
     return this.speakBrowser(text, opts);
   }
 
+  /**
+   * Speaks with ElevenLabs. The first sentence is requested on its own so playback starts
+   * quickly; the rest is fetched at the same time and plays straight after.
+   */
   private async speakElevenLabs(text: string, opts: SpeakOptions): Promise<boolean> {
     const ac = new AbortController();
     this.abort = ac;
-    const res = await fetch("/api/tts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ text }),
-      signal: ac.signal,
-    });
-    if (!res.ok) {
-      const d = (await res.json().catch(() => null)) as { reason?: string } | null;
-      throw new Error(d?.reason || `Voice service error ${res.status}.`);
-    }
-    const blob = await res.blob();
-    if (ac.signal.aborted) return false;
+    const fetchAudio = async (part: string) => {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ text: part }),
+        signal: ac.signal,
+      });
+      if (!res.ok) {
+        const d = (await res.json().catch(() => null)) as { reason?: string } | null;
+        throw new Error(d?.reason || `Voice service error ${res.status}.`);
+      }
+      return res.blob();
+    };
 
+    const parts = splitForSpeech(text);
+    const pending = parts.map((p, i) => {
+      const f = fetchAudio(p);
+      if (i > 0) f.catch(() => {}); // a later failure is handled when we reach it
+      return f;
+    });
     await resumeAudio();
+    for (let i = 0; i < pending.length; i++) {
+      let blob: Blob;
+      try {
+        blob = await pending[i];
+      } catch (e) {
+        if (i === 0) throw e; // nothing played yet: fall back to the device voice
+        return this.speakBrowser(parts.slice(i).join(" "), opts);
+      }
+      if (ac.signal.aborted) return false;
+      const done = await this.playBlob(blob, i === 0 ? opts : {});
+      if (!done) return false;
+    }
+    audioLevel.current = 0;
+    audioLevel.source = "none";
+    return true;
+  }
+
+  private playBlob(blob: Blob, opts: { onStart?: () => void }): Promise<boolean> {
     const audio = new Audio(URL.createObjectURL(blob));
     this.audio = audio;
     const src = getAudioContext().createMediaElementSource(audio);
@@ -112,16 +149,28 @@ export class VoiceOutput {
     analyser.connect(getAudioContext().destination);
 
     return new Promise<boolean>((resolve) => {
-      this.resolveCurrent = resolve;
+      let settled = false;
+      const end = (ok: boolean) => {
+        if (settled) return;
+        settled = true;
+        cancelAnimationFrame(this.raf);
+        this.raf = 0;
+        URL.revokeObjectURL(audio.src);
+        src.disconnect();
+        if (this.resolveCurrent === end) this.resolveCurrent = null;
+        if (this.audio === audio) this.audio = null;
+        resolve(ok);
+      };
+      this.resolveCurrent = end;
       const tick = () => {
         audioLevel.current = analyzeAudio(analyser);
         audioLevel.source = "voice";
         this.raf = requestAnimationFrame(tick);
       };
       audio.onplay = () => opts.onStart?.();
-      audio.onended = () => this.finish(true);
-      audio.onerror = () => this.finish(false);
-      audio.play().then(tick, () => this.finish(false));
+      audio.onended = () => end(true);
+      audio.onerror = () => end(false);
+      audio.play().then(tick, () => end(false));
     });
   }
 
