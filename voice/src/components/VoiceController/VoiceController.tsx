@@ -24,20 +24,19 @@ export function VoiceController({ jarvis }: { jarvis: JarvisController }) {
 
   return (
     <div className="controller">
-      {needsPermission && state === "sleeping" && (
-        <div className="permission" role="note">
-          <p className="permission__title">Allow microphone access</p>
-          <p className="permission__body">
-            JARVIS needs your microphone to hear you. It only listens after you wake it (or, if you turn it on, for “Hey Jarvis”). Nothing is recorded.
-          </p>
-          <button className="permission__btn" onClick={() => jarvis.enableMic()}>
-            Enable microphone
-          </button>
-        </div>
-      )}
-
       <WakeButton state={state} onPress={jarvis.primaryAction} paused={jarvis.paused} />
-      <p className="controller__hint" aria-live="polite">{hint}</p>
+      {needsPermission && state === "sleeping" ? (
+        <button
+          type="button"
+          className="micpill"
+          onClick={() => jarvis.enableMic()}
+          title="JARVIS only listens after you wake him (or for “Hey Jarvis” if you turn it on). Nothing is recorded."
+        >
+          <span aria-hidden="true" className="micpill__dot" /> Allow microphone
+        </button>
+      ) : (
+        <p className="controller__hint" aria-live="polite">{hint}</p>
+      )}
 
       <form
         className="typebar"
